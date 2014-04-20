@@ -172,11 +172,9 @@ Status retrieve(char *keystring) {
     int page_id = 0;
     while (!orderStream.eof())  {
         // while !eof
-        for (int i = 0; i < PAGE_SIZE; ++i) {
-            orderStream.read((char *)&order_page[i], sizeof(int));
-        }
+        orderStream.read((char *)order_page, sizeof(int) * PAGE_SIZE);
         // read an order_key page
-        ++page_id;
+        
         for (int count = 0; count < PAGE_SIZE; ++count) {
             if (order_page[count] == 0) {
                 return FAIL;
@@ -186,12 +184,15 @@ Status retrieve(char *keystring) {
                 int tempCustkey;
                 double tempTotalprice;
                 int tempShippriorty;
-                int index = (page_id - 1) * PAGE_SIZE + count;
-                for (int i = 0; i <= index; ++i) {
-                    custStream.read((char *)&tempCustkey, sizeof(int));
-                    priceStream.read((char *)&tempTotalprice, sizeof(double));
-                    shipStream.read((char *)&tempShippriorty, sizeof(int));
-                }
+                int offset = page_id * PAGE_SIZE + count;
+                
+                custStream.seekg(offset * sizeof(int), ios::beg);
+                priceStream.seekg(offset * sizeof(double), ios::beg);
+                shipStream.seekg(offset * sizeof(int), ios::beg);
+
+                custStream.read((char *)&tempCustkey, sizeof(int));
+                priceStream.read((char *)&tempTotalprice, sizeof(double));
+                shipStream.read((char *)&tempShippriorty, sizeof(int));
                 // seek page_id * PAGE_SIZE + count
                 // read other fields
                 rec.order_key = key;
@@ -201,8 +202,8 @@ Status retrieve(char *keystring) {
                 // ...
                 return SUCCESS;
             }
-
         }
+        ++page_id;
     }
     return FAIL;
 }
