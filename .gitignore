@@ -1,0 +1,9 @@
+# data files
+*.tbl
+*.dat
+
+# executable
+*.out
+
+# object files
+*.o
