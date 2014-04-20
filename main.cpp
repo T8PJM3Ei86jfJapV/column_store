@@ -41,9 +41,10 @@ int main(int argc, char *argv[]) {
     // retrieve(key, &rec)
     else {
         retrieve(argv[2]);
+        cout.precision(2);
         cout << rec.order_key << '|'
              << rec.cust_key << '|'
-             << rec.total_price << '|'
+             << std::fixed << rec.total_price << '|'
              << rec.ship_priority << '\n';
     }
 
