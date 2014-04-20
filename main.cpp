@@ -2,8 +2,10 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+
 #define PAGE_SIZE 1024
 #define LINE_SIZE 256
+
 using namespace std;
 
 enum Status {
@@ -23,24 +25,20 @@ struct Record {
     int ship_priority;
 };
 
-Record rec;
 Status load();
-Status split(char *line);
-Status retrieve(char *keystring);
+Status split(char *line, Record &rec);
+Status retrieve(char *keystring, Record &rec);
 
 int main(int argc, char *argv[]) {
-    Record result;
-
     // disable stream sync
     ios::sync_with_stdio(false);
 
     // if load
     if (strcmp(argv[1], "load") == 0) {
         load();
-    }
-    // retrieve(key, &rec)
-    else {
-        retrieve(argv[2]);
+    } else {  // retrieve
+        Record rec;
+        retrieve(argv[2], rec);
         cout.precision(2);
         cout << rec.order_key << '|'
              << rec.cust_key << '|'
@@ -62,37 +60,27 @@ Status load() {
     if (!fin)
         return FAIL;
 
-    // open order_key
-    ofstream orderStream;
-    orderStream.open("order_key.dat", ios::binary | ios::app);
-    // open cust_key
-    ofstream custStream;
-    custStream.open("cust_key.dat", ios::binary | ios::app);
-    // open total_price
-    ofstream priceStream;
-    priceStream.open("total_price.dat", ios::binary | ios::app);
-    // open ship_priority
-    ofstream shipStream;
-    shipStream.open("ship_priority.dat", ios::binary | ios::app);
+    // open data files
+    ofstream orderStream("order_key.dat", ios::binary | ios::app);
+    ofstream custStream("cust_key.dat", ios::binary | ios::app);
+    ofstream priceStream("total_price.dat", ios::binary | ios::app);
+    ofstream shipStream("ship_priority.dat", ios::binary | ios::app);
 
-    // while !eof
-    while (!fin.eof())  {
-        // read a line
-        // split
-        char temp[LINE_SIZE];
-        fin.getline(temp, LINE_SIZE, '\n');
+    char temp[LINE_SIZE];
+    Record rec;
 
-        if (split(temp) == FAIL) {
+    while (fin.getline(temp, LINE_SIZE, '\n'))  {
+        // read a line and split
+        if (split(temp, rec) == FAIL) {
             cout << "An error occurs! spliting fail" << endl;
             continue;
         }
+
         if (count == PAGE_SIZE) {
-            for (int i = 0; i < PAGE_SIZE; ++i) {
-                orderStream.write((char *)&order_page[i], sizeof(int));
-                custStream.write((char *)&cust_page[i], sizeof(int));
-                priceStream.write((char *)&price_page[i], sizeof(double));
-                shipStream.write((char *)&ship_page[i], sizeof(int));
-            }
+            orderStream.write((char *)order_page, sizeof(int) * PAGE_SIZE);
+            custStream.write((char *)cust_page, sizeof(int) * PAGE_SIZE);
+            priceStream.write((char *)&price_page, sizeof(double) * PAGE_SIZE);
+            shipStream.write((char *)&ship_page, sizeof(int) * PAGE_SIZE);
             // write to file
             count = 0;
         }
@@ -103,31 +91,30 @@ Status load() {
         ship_page[count] = rec.ship_priority;
         ++count;
     }
+
     // assert: eof
     int int_zero = 0;
     double double_zero = 0.0;
-    for (int i = 0; i < count; ++i) {
-        orderStream.write((char *)&order_page[i], sizeof(int));
-        custStream.write((char *)&cust_page[i], sizeof(int));
-        priceStream.write((char *)&price_page[i], sizeof(double));
-        shipStream.write((char *)&ship_page[i], sizeof(int));
-    }
+
+    // write the page
+    orderStream.write((char *)order_page, sizeof(int) * count);
+    custStream.write((char *)cust_page, sizeof(int) * count);
+    priceStream.write((char *)price_page, sizeof(double) * count);
+    shipStream.write((char *)ship_page, sizeof(int) * count);
+
     for (int i = count; i < PAGE_SIZE; ++i) {
         orderStream.write((char *)&int_zero, sizeof(int));
         custStream.write((char *)&int_zero, sizeof(int));
         priceStream.write((char *)&double_zero, sizeof(double));
         shipStream.write((char *)&int_zero, sizeof(int));
     }
-    // if there is some space left
-    // pad 0s
-    // write the page
 
     return SUCCESS;
 }
 
 /* get a line, return the necessary fields in it
  */
-Status split(char *line) {
+Status split(char *line, Record &rec) {
     char *ptr;
     const char *op = "|";
     ptr = strtok(line, op);
@@ -150,22 +137,15 @@ Status split(char *line) {
 /* given a search key, found the record in the file,
  *  return the record with necessary fields
  */
-Status retrieve(char *keystring) {
+Status retrieve(char *keystring, Record &rec) {
     int key = atoi(keystring);
-    // open 4 files
 
-    // open order_key
-    ifstream orderStream;
-    orderStream.open("order_key.dat", ios::binary);
-    // open cust_key
-    ifstream custStream;
-    custStream.open("cust_key.dat", ios::binary);
-    // open total_price
-    ifstream priceStream;
-    priceStream.open("total_price.dat", ios::binary);
-    // open ship_priority
-    ifstream shipStream;
-    shipStream.open("ship_priority.dat", ios::binary);
+    // open data files
+    ifstream orderStream("order_key.dat", ios::binary);
+    ifstream custStream("cust_key.dat", ios::binary);
+    ifstream priceStream("total_price.dat", ios::binary);
+    ifstream shipStream("ship_priority.dat", ios::binary);
+
     // if it doesn't exist
     if (!orderStream || !custStream || !priceStream || !shipStream)
         return FAIL;
