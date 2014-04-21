@@ -1,5 +1,5 @@
-#include <cstdlib>
-#include <cstdio>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "io.h"
 
@@ -10,24 +10,26 @@ int ship_page[PAGE_SIZE];
 
 Status load() {
     int count = 0;  // number of slots in current page
-    // open order.tbl with C++ file stream
-
-    FILE *fin = fopen("orders.tbl", "r");
-    // if it doesn't exist
-    if (fin == NULL)
-        return FAIL;
-
-    // open data files
+    char buffer[LINE_SIZE];
+    Record rec;
+    int int_zero = 0;
+    double double_zero = 0.0;
+    int i = 0;
     FILE *order_f = fopen("order_key.dat", "wb+");
     FILE *cust_f= fopen("cust_key.dat", "wb+");
     FILE *price_f = fopen("total_price.dat", "wb+");
     FILE *ship_f = fopen("ship_priority.dat", "wb+");
+    FILE *fin = fopen("orders.tbl", "r");
 
-    char buffer[LINE_SIZE];
-    Record rec;
+    // if it doesn't exist
+    if (fin == NULL || order_f == NULL || cust_f == NULL || 
+        price_f == NULL || ship_f == NULL)
+        return FAIL;
+    // open data files
+
     while (fgets(buffer, LINE_SIZE, fin) != NULL)  {
         // read a line and split
-        if (split(buffer, rec) == FAIL) {
+        if (split(buffer, &rec) == FAIL) {
           printf("An error occurs! spliting fail\n");
             continue;
         }
@@ -49,16 +51,14 @@ Status load() {
     }
 
     // assert: eof
-    int int_zero = 0;
-    double double_zero = 0.0;
 
     // write the page
     fwrite(order_page, sizeof(int), count, order_f);
     fwrite(cust_page, sizeof(int), count, cust_f);
     fwrite(price_page, sizeof(double), count, price_f);
     fwrite(ship_page, sizeof(int), count, ship_f);
-
-    for (int i = count; i < PAGE_SIZE; ++i) {
+    
+    for (i = count; i < PAGE_SIZE; ++i) {
         fwrite(&int_zero, sizeof(int), 1, order_f);
         fwrite(&int_zero, sizeof(int), 1, cust_f);
         fwrite(&double_zero, sizeof(int), 1, price_f);
@@ -70,8 +70,10 @@ Status load() {
 /* given a search key, found the record in the file,
  *  return the record with necessary fields
  */
-Status retrieve(char *keystring, Record &rec) {
+Status retrieve(char *keystring, Record *rec) {
     int key = atoi(keystring);
+    int page_id = 0;
+    int count = 0;
 
     // open data files
     FILE *order_f = fopen("order_key.dat", "rb");
@@ -84,13 +86,12 @@ Status retrieve(char *keystring, Record &rec) {
         price_f == NULL || ship_f == NULL)
         return FAIL;
 
-    int page_id = 0;
     while (!feof(order_f))  {
         // while !eof
         fread(order_page, sizeof(int), PAGE_SIZE, order_f);
         // read an order_key page
         
-        for (int count = 0; count < PAGE_SIZE; ++count) {
+        for (count = 0; count < PAGE_SIZE; ++count) {
             if (order_page[count] == 0) {
                 return FAIL;
             }
@@ -111,10 +112,10 @@ Status retrieve(char *keystring, Record &rec) {
                 fread(&tmp_price, sizeof(double), 1, price_f);
                 fread(&tmp_ship, sizeof(int), 1, ship_f);
 
-                rec.order_key = key;
-                rec.cust_key = tmp_cust;
-                rec.total_price = tmp_price;
-                rec.ship_priority = tmp_ship;
+                rec->order_key = key;
+                rec->cust_key = tmp_cust;
+                rec->total_price = tmp_price;
+                rec->ship_priority = tmp_ship;
                 // ...
                 return SUCCESS;
             }

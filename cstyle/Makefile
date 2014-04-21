@@ -1,12 +1,12 @@
-CC=g++
+CC=gcc
 CFLAGS=-c -Wall
 
-UTILS=utils.cpp
-IO=io.cpp
-MAIN=main.cpp
+UTILS=utils.c
+IO=io.c
+MAIN=main.c
 
 SOURCES=$(UTILS) $(IO) $(MAIN)
-OBJECTS=$(SOURCES:.cpp=.o)
+OBJECTS=$(SOURCES:.c=.o)
 
 EXECUTABLE=db
 
@@ -15,7 +15,7 @@ all: $(SOURCES) $(EXECUTABLE)
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@
 
-.cpp.o:
+.c.o:
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:

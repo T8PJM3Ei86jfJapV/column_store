@@ -1,5 +1,5 @@
-#include <cstring>
-#include <cstdio>
+#include <string.h>
+#include <stdio.h>
 #include "io.h"
 
 int main(int argc, char *argv[]) {
@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
     } else {  // retrieve
         Record rec;
 
-        if (retrieve(argv[2], rec) == SUCCESS) {
+        if (retrieve(argv[2], &rec) == SUCCESS) {
           printf("%d|%d|%.2f|%d\n", rec.order_key, rec.cust_key, 
               rec.total_price, rec.ship_priority);
         } else {

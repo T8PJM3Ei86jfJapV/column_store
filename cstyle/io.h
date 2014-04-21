@@ -6,6 +6,6 @@
 #define BUFFER_SIZE 1024
 
 Status load();
-Status retrieve(char *keystring, Record &rec);
+Status retrieve(char *keystring, Record *rec);
 
 #endif
