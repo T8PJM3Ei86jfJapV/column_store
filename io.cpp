@@ -6,6 +6,11 @@
 using std::ifstream;
 using std::ofstream;
 
+int order_page[PAGE_SIZE];
+int cust_page[PAGE_SIZE];
+double price_page[PAGE_SIZE];
+int ship_page[PAGE_SIZE];
+
 Status load() {
     int count = 0;  // number of slots in current page
     // open order.tbl with C++ file stream
