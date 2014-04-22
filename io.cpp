@@ -85,9 +85,7 @@ Status load() {
 /* given a search key, found the record in the file,
  *  return the record with necessary fields
  */
-Status retrieve(char *keystring, Record &rec) {
-    int key = atoi(keystring);
-
+Status retrieve(int key, Record &rec) {
     // open data files
     ifstream order_s("order_key.dat", std::ios::binary);
     ifstream cust_s("cust_key.dat", std::ios::binary);
@@ -133,10 +131,19 @@ Status retrieve(char *keystring, Record &rec) {
                 std::cout << "Record found after iterating over " 
                     << page_id << " pages\n";
 #endif
+                order_s.close();
+                cust_s.close();
+                price_s.close();
+                ship_s.close();
                 return SUCCESS;
             }
         }
         ++page_id;
     }
+    
+    order_s.close();
+    cust_s.close();
+    price_s.close();
+    ship_s.close();
     return FAIL;
 }

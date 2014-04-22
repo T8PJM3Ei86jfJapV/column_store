@@ -4,6 +4,6 @@
 #define IO_H
 
 Status load();
-Status retrieve(char *keystring, Record &rec);
+Status retrieve(int key, Record &rec);
 
 #endif
