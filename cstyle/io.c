@@ -20,6 +20,9 @@ Status load() {
     FILE *price_f = fopen("total_price.dat", "wb+");
     FILE *ship_f = fopen("ship_priority.dat", "wb+");
     FILE *fin = fopen("orders.tbl", "r");
+#ifdef TRACK
+    int page_id = 0;
+#endif
 
     // if it doesn't exist
     if (fin == NULL || order_f == NULL || cust_f == NULL || 
@@ -41,6 +44,9 @@ Status load() {
             fwrite(ship_page, sizeof(int), PAGE_SIZE, ship_f);
             // write to file
             count = 0;
+#ifdef TRACK
+            page_id++;
+#endif
         }
 
         order_page[count] = rec.order_key;
@@ -51,19 +57,20 @@ Status load() {
     }
 
     // assert: eof
-
-    // write the page
-    fwrite(order_page, sizeof(int), count, order_f);
-    fwrite(cust_page, sizeof(int), count, cust_f);
-    fwrite(price_page, sizeof(double), count, price_f);
-    fwrite(ship_page, sizeof(int), count, ship_f);
-    
     for (i = count; i < PAGE_SIZE; ++i) {
-        fwrite(&int_zero, sizeof(int), 1, order_f);
-        fwrite(&int_zero, sizeof(int), 1, cust_f);
-        fwrite(&double_zero, sizeof(int), 1, price_f);
-        fwrite(&int_zero, sizeof(int), 1, ship_f);
+      order_page[i] = cust_page[i] = ship_page[i] = int_zero;
+      price_page[i] = double_zero;
     }
+    // write the page
+    fwrite(order_page, sizeof(int), PAGE_SIZE, order_f);
+    fwrite(cust_page, sizeof(int), PAGE_SIZE, cust_f);
+    fwrite(price_page, sizeof(double), PAGE_SIZE, price_f);
+    fwrite(ship_page, sizeof(int), PAGE_SIZE, ship_f);
+    
+#ifdef TRACK
+    page_id++;
+    printf("Writing done. %d pages written.\n", page_id);
+#endif
     return SUCCESS;
 }
 
@@ -116,7 +123,9 @@ Status retrieve(char *keystring, Record *rec) {
                 rec->cust_key = tmp_cust;
                 rec->total_price = tmp_price;
                 rec->ship_priority = tmp_ship;
-                // ...
+#ifdef TRACK
+                printf("Record found after iterating over %d pages.\n", page_id); 
+#endif
                 return SUCCESS;
             }
         }

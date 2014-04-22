@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall
+CFLAGS=-c -Wall -DTRACK
 
 UTILS=utils.c
 IO=io.c

@@ -22,28 +22,33 @@ Status load() {
         return FAIL;
 
     // open data files
-    ofstream orderStream("order_key.dat", std::ios::binary | std::ios::app);
-    ofstream custStream("cust_key.dat", std::ios::binary | std::ios::app);
-    ofstream priceStream("total_price.dat", std::ios::binary | std::ios::app);
-    ofstream shipStream("ship_priority.dat", std::ios::binary | std::ios::app);
+    ofstream order_s("order_key.dat", std::ios::binary | std::ios::app);
+    ofstream cust_s("cust_key.dat", std::ios::binary | std::ios::app);
+    ofstream price_s("total_price.dat", std::ios::binary | std::ios::app);
+    ofstream ship_s("ship_priority.dat", std::ios::binary | std::ios::app);
 
-    char temp[LINE_SIZE];
+    char buffer[LINE_SIZE];
     Record rec;
-
-    while (fin.getline(temp, LINE_SIZE, '\n'))  {
+#ifdef TRACK
+    int page_id = 0;
+#endif
+    while (fin.getline(buffer, LINE_SIZE, '\n'))  {
         // read a line and split
-        if (split(temp, rec) == FAIL) {
+        if (split(buffer, rec) == FAIL) {
           std::cout << "An error occurs! spliting fail" << '\n';
             continue;
         }
 
         if (count == PAGE_SIZE) {
-            orderStream.write((char *)order_page, sizeof(int) * PAGE_SIZE);
-            custStream.write((char *)cust_page, sizeof(int) * PAGE_SIZE);
-            priceStream.write((char *)&price_page, sizeof(double) * PAGE_SIZE);
-            shipStream.write((char *)&ship_page, sizeof(int) * PAGE_SIZE);
+            order_s.write((char *)order_page, sizeof(int) * PAGE_SIZE);
+            cust_s.write((char *)cust_page, sizeof(int) * PAGE_SIZE);
+            price_s.write((char *)&price_page, sizeof(double) * PAGE_SIZE);
+            ship_s.write((char *)&ship_page, sizeof(int) * PAGE_SIZE);
             // write to file
             count = 0;
+#ifdef TRACK
+            page_id++;
+#endif
         }
 
         order_page[count] = rec.order_key;
@@ -57,19 +62,23 @@ Status load() {
     int int_zero = 0;
     double double_zero = 0.0;
 
-    // write the page
-    orderStream.write((char *)order_page, sizeof(int) * count);
-    custStream.write((char *)cust_page, sizeof(int) * count);
-    priceStream.write((char *)price_page, sizeof(double) * count);
-    shipStream.write((char *)ship_page, sizeof(int) * count);
-
+    // padding zeros
     for (int i = count; i < PAGE_SIZE; ++i) {
-        orderStream.write((char *)&int_zero, sizeof(int));
-        custStream.write((char *)&int_zero, sizeof(int));
-        priceStream.write((char *)&double_zero, sizeof(double));
-        shipStream.write((char *)&int_zero, sizeof(int));
+      order_page[i] = cust_page[i] = ship_page[i] = int_zero;
+      price_page[i] = double_zero;
     }
 
+    // write the page
+    order_s.write((char *)order_page, sizeof(int) * PAGE_SIZE);
+    cust_s.write((char *)cust_page, sizeof(int) * PAGE_SIZE);
+    price_s.write((char *)price_page, sizeof(double) * PAGE_SIZE);
+    ship_s.write((char *)ship_page, sizeof(int) * PAGE_SIZE);
+
+
+#ifdef TRACK
+    page_id++;
+    std::cout << "Writing Done. " << page_id << " pages have be written." << '\n';
+#endif
     return SUCCESS;
 }
 
@@ -80,19 +89,19 @@ Status retrieve(char *keystring, Record &rec) {
     int key = atoi(keystring);
 
     // open data files
-    ifstream orderStream("order_key.dat", std::ios::binary);
-    ifstream custStream("cust_key.dat", std::ios::binary);
-    ifstream priceStream("total_price.dat", std::ios::binary);
-    ifstream shipStream("ship_priority.dat", std::ios::binary);
+    ifstream order_s("order_key.dat", std::ios::binary);
+    ifstream cust_s("cust_key.dat", std::ios::binary);
+    ifstream price_s("total_price.dat", std::ios::binary);
+    ifstream ship_s("ship_priority.dat", std::ios::binary);
 
     // if it doesn't exist
-    if (!orderStream || !custStream || !priceStream || !shipStream)
+    if (!order_s || !cust_s || !price_s || !ship_s)
         return FAIL;
 
     int page_id = 0;
-    while (!orderStream.eof())  {
+    while (!order_s.eof())  {
         // while !eof
-        orderStream.read((char *)order_page, sizeof(int) * PAGE_SIZE);
+        order_s.read((char *)order_page, sizeof(int) * PAGE_SIZE);
         // read an order_key page
         
         for (int count = 0; count < PAGE_SIZE; ++count) {
@@ -101,25 +110,29 @@ Status retrieve(char *keystring, Record &rec) {
             }
 
             if (order_page[count] == key) {
-                int tempCustkey;
-                double tempTotalprice;
-                int tempShippriorty;
+                int tmp_cust;
+                double tmp_price;
+                int tmp_ship;
                 int offset = page_id * PAGE_SIZE + count;
                 
-                custStream.seekg(offset * sizeof(int), std::ios::beg);
-                priceStream.seekg(offset * sizeof(double), std::ios::beg);
-                shipStream.seekg(offset * sizeof(int), std::ios::beg);
+                cust_s.seekg(offset * sizeof(int), std::ios::beg);
+                price_s.seekg(offset * sizeof(double), std::ios::beg);
+                ship_s.seekg(offset * sizeof(int), std::ios::beg);
 
-                custStream.read((char *)&tempCustkey, sizeof(int));
-                priceStream.read((char *)&tempTotalprice, sizeof(double));
-                shipStream.read((char *)&tempShippriorty, sizeof(int));
+                cust_s.read((char *)&tmp_cust, sizeof(int));
+                price_s.read((char *)&tmp_price, sizeof(double));
+                ship_s.read((char *)&tmp_ship, sizeof(int));
                 // seek page_id * PAGE_SIZE + count
                 // read other fields
                 rec.order_key = key;
-                rec.cust_key = tempCustkey;
-                rec.total_price = tempTotalprice;
-                rec.ship_priority = tempShippriorty;
+                rec.cust_key = tmp_cust;
+                rec.total_price = tmp_price;
+                rec.ship_priority = tmp_ship;
                 // ...
+#ifdef TRACK
+                std::cout << "Record found after iterating over " 
+                    << page_id << " pages\n";
+#endif
                 return SUCCESS;
             }
         }
