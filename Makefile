@@ -1,5 +1,6 @@
 CC=g++
-CFLAGS=-c -Wall -DTRACK
+#CFLAGS=-c -Wall -DTRACK -DORDERED
+CFLAGS=-c -Wall -DORDERED
 
 UTILS=utils.cpp
 IO=io.cpp

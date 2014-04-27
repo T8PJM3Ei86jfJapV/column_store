@@ -35,7 +35,7 @@ Status load() {
     while (fin.getline(buffer, LINE_SIZE, '\n'))  {
         // read a line and split
         if (split(buffer, rec) == FAIL) {
-          std::cout << "An error occurs! spliting fail" << '\n';
+            std::cout << "An error occurs! spliting fail" << '\n';
             continue;
         }
 
@@ -64,8 +64,8 @@ Status load() {
 
     // padding zeros
     for (int i = count; i < PAGE_SIZE; ++i) {
-      order_page[i] = cust_page[i] = ship_page[i] = int_zero;
-      price_page[i] = double_zero;
+        order_page[i] = cust_page[i] = ship_page[i] = int_zero;
+        price_page[i] = double_zero;
     }
 
     // write the page
@@ -96,12 +96,141 @@ Status retrieve(int key, Record &rec) {
     if (!order_s || !cust_s || !price_s || !ship_s)
         return FAIL;
 
+#ifdef ORDERED
+    // seek the last non-zero record;
+    order_s.seekg(0, std::ios::end);
+    int size = order_s.tellg() / sizeof(int);
+
+#ifdef TRACK
+    std::cout << "Size of file: " << size << " records.\n";
+#endif
+
+    // read in the last page
+    order_s.seekg((size - PAGE_SIZE) * sizeof(int), std::ios::beg);
+
+#ifdef TRACK
+    std::cout << "Start searching for last nonzero record.\n"
+              << "Seek to " << size - PAGE_SIZE << "\n";
+#endif
+
+    int tmp_key = 0, nonzero_offset = 0;
+    order_s.read((char *)&tmp_key, sizeof(int));
+
+    while (tmp_key != 0 && order_s.tellg() / sizeof(int) < size) {
+#ifdef TRACK
+        std::cout << "Current position: " << order_s.tellg() << "\n";
+#endif
+        if (tmp_key == key) {
+            int tmp_cust;
+            double tmp_price;
+            int tmp_ship;
+            int offset = size - PAGE_SIZE + nonzero_offset;
+#ifdef TRACK
+            std::cout << "Found record in " << offset << " in last page\n";
+#endif
+            cust_s.seekg(offset * sizeof(int), std::ios::beg);
+            price_s.seekg(offset * sizeof(double), std::ios::beg);
+            ship_s.seekg(offset * sizeof(int), std::ios::beg);
+
+            // read other fields
+            cust_s.read((char *)&tmp_cust, sizeof(int));
+            price_s.read((char *)&tmp_price, sizeof(double));
+            ship_s.read((char *)&tmp_ship, sizeof(int));
+
+            rec.order_key = key;
+            rec.cust_key = tmp_cust;
+            rec.total_price = tmp_price;
+            rec.ship_priority = tmp_ship;
+
+            order_s.close();
+            cust_s.close();
+            price_s.close();
+            ship_s.close();
+            return SUCCESS;
+        }
+
+        order_s.read((char *)&tmp_key, sizeof(int));
+        nonzero_offset++;
+    }
+
+    size = size - PAGE_SIZE + nonzero_offset;
+
+#ifdef TRACK
+    std::cout << "Start binary search, last nonzero record in "
+              << size - 1 << "\n";
+#endif
+
+    // rewind
+    order_s.seekg(0, std::ios::beg);
+
+    int low = 0, high = size - 1;
+    int middle = (low + high) / 2;
+
+    while (low <= high) {
+        middle = (low + high) / 2;
+
+#ifdef TRACK
+        std::cout << "Checking middle point in " << middle << "\n";
+#endif
+
+        order_s.seekg(middle * sizeof(int), std::ios::beg);
+        order_s.read((char *)&tmp_key, sizeof(int));
+
+#ifdef TRACK
+        std::cout << "Reading key in " << middle << "\n"
+                  << "order_s.tellg() = " << order_s.tellg() << "\n"
+                  << "tmp_key = " << tmp_key << "\n";
+#endif
+
+        if (tmp_key == 0) {
+            return FAIL;
+        }
+
+        if (tmp_key == key) {
+            int tmp_cust;
+            double tmp_price;
+            int tmp_ship;
+
+#ifdef TRACK
+            std::cout << "Found record in " << middle << "\n";
+#endif
+            cust_s.seekg(middle * sizeof(int), std::ios::beg);
+            price_s.seekg(middle * sizeof(double), std::ios::beg);
+            ship_s.seekg(middle * sizeof(int), std::ios::beg);
+
+            // read other fields
+            cust_s.read((char *)&tmp_cust, sizeof(int));
+            price_s.read((char *)&tmp_price, sizeof(double));
+            ship_s.read((char *)&tmp_ship, sizeof(int));
+
+            rec.order_key = key;
+            rec.cust_key = tmp_cust;
+            rec.total_price = tmp_price;
+            rec.ship_priority = tmp_ship;
+
+            order_s.close();
+            cust_s.close();
+            price_s.close();
+            ship_s.close();
+            return SUCCESS;
+        }
+
+        if (key > tmp_key) {
+            low = middle + 1;
+        } else {
+            high = middle - 1;
+        }
+    }
+
+/*********************** Linear Search ***************************/
+#else
     int page_id = 0;
     while (!order_s.eof())  {
         // while !eof
-        order_s.read((char *)order_page, sizeof(int) * PAGE_SIZE);
-        // read an order_key page
         
+        // read an order_key page
+        order_s.read((char *)order_page, sizeof(int) * PAGE_SIZE);
+
         for (int count = 0; count < PAGE_SIZE; ++count) {
             if (order_page[count] == 0) {
                 return FAIL;
@@ -112,7 +241,7 @@ Status retrieve(int key, Record &rec) {
                 double tmp_price;
                 int tmp_ship;
                 int offset = page_id * PAGE_SIZE + count;
-                
+
                 cust_s.seekg(offset * sizeof(int), std::ios::beg);
                 price_s.seekg(offset * sizeof(double), std::ios::beg);
                 ship_s.seekg(offset * sizeof(int), std::ios::beg);
@@ -127,10 +256,10 @@ Status retrieve(int key, Record &rec) {
                 rec.total_price = tmp_price;
                 rec.ship_priority = tmp_ship;
                 // ...
-#ifdef TRACK
-                std::cout << "Record found after iterating over " 
-                    << page_id << " pages\n";
-#endif
+# ifdef TRACK
+                std::cout << "Record found after iterating over "
+                          << page_id << " pages\n";
+# endif
                 order_s.close();
                 cust_s.close();
                 price_s.close();
@@ -140,7 +269,9 @@ Status retrieve(int key, Record &rec) {
         }
         ++page_id;
     }
-    
+
+#endif
+
     order_s.close();
     cust_s.close();
     price_s.close();
